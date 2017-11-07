@@ -10,29 +10,53 @@ var svg = d3.select('svg')
 
 //set up the projection for the map
 var albersProjection = d3.geoAlbersUsa()  //tell it which projection to use
-    .scale(700)                           //tell it how big the map should be
+    .scale(1.5 * height)                        //tell it how big the map should be
     .translate([(width/2), (height/2)]);  //set the center of the map to show up in the center of the screen
 
 //set up the path generator function to draw the map outlines
 path = d3.geoPath()
     .projection(albersProjection);        //tell it to use the projection that we just made to convert lat/long to pixels
 
+var stateLookup = d3.map();
 
-//import the data from the .csv file
-d3.json('./cb_2016_us_state_20m.json', function(dataIn){
+var colorScale = d3.scaleLinear().range([ "white", "blue" ])
+
+svg.append("text")
+    .attr("x",100)
+    .attr("y",100)
+    .attr("class", "textbox")
+    .text("");
+
+queue()
+  .defer(d3.json, "./cb_2016_us_state_20m.json") // import the map geoJSON
+  .defer(d3.csv, "./statePop.csv")          // import the data from the .csv file
+  .await( function(err, stateDate, popData) {
+
+    popData.forEach(function(d) {
+      stateLookup.set(d.name, d.population);
+    });
+
+    colorScale.domain([0, d3.max(
+                            popData.map(
+                              function(d) {
+                                return d.population;
+    }))]);
 
     svg.selectAll("path")               //make empty selection
-        .data(dataIn.features)          //bind to the features array in the map data
+        .data(stateDate.features)       //bind to the features array in the map data
         .enter()
         .append("path")                 //add the paths to the DOM
         .attr("d", path)                //actually draw them
         .attr("class", "feature")
-        .attr('fill','gainsboro')
+        .attr('fill', function(d){ return colorScale(stateLookup.get(d.properties.NAME)) })
         .attr('stroke','white')
-        .attr('stroke-width',.2);
-
-
+        .attr('stroke-width',.2)
+        .on("mouseover", function(d) {
+          d3.select(".textbox")
+              .text(d.properties.NAME);
+        })
+        .on("mouseout", function(d) {
+          d3.select(".textbox")
+              .text("");
+        });
   });
-
-
-
